@@ -2,14 +2,22 @@ trigger:
 - main
 
 pool:
-  name: 'Default'  # Your self-hosted agent pool
+  name: 'Default'  # Your self-hosted agent
   demands:
   - agent.name -equals agent2
 
+variables:
+  TF_DIR: 'terraform'  # Path to main.tf + variables.tf + k8s-deploy.tf
+  JENKINS_JOB: 'lost-found-pipeline'
+  JENKINS_URL: 'http://20.40.43.80:8080'
+  JENKINS_USER: 'shanmuk'
+  JENKINS_TOKEN: '11176f30ee7828b6dbc251fecdf069df33'
+  AZURE_SERVICE_CONNECTION: 'myAzureRMServiceConnection'
+
 stages:
-# ------------------
+# -------------------------
 # Stage 1: Trigger Jenkins
-# ------------------
+# -------------------------
 - stage: CI
   displayName: "Run Jenkins CI"
   jobs:
@@ -18,13 +26,13 @@ stages:
     steps:
     - bash: |
         echo "Triggering Jenkins job..."
-        curl -X POST "http://20.40.43.80:8080//job/lost-found-pipeline/build" \
-          --user "shanmuk:11176f30ee7828b6dbc251fecdf069df33"
+        curl -X POST "$(JENKINS_URL)/job/$(JENKINS_JOB)/build" \
+          --user "$(JENKINS_USER):$(JENKINS_TOKEN)"
       displayName: "Trigger Jenkins Build"
 
-# ------------------
+# -------------------------
 # Stage 2: Terraform Deploy
-# ------------------
+# -------------------------
 - stage: CD
   displayName: "Deploy App to AKS"
   dependsOn: CI
@@ -32,26 +40,47 @@ stages:
   - job: Terraform
     displayName: "Terraform Deploy"
     steps:
+    # Checkout repo
     - checkout: self
 
+    # Debug: verify Terraform installed
     - bash: terraform -version
       displayName: "Check Terraform"
 
+    # Debug: verify SP credentials
     - task: AzureCLI@2
-      displayName: "Terraform Init & Apply"
+      displayName: "Debug SP credentials"
       inputs:
-        azureSubscription: 'myAzureRMServiceConnection'
+        azureSubscription: $(AZURE_SERVICE_CONNECTION)
         scriptType: bash
         scriptLocation: inlineScript
         addSpnToEnvironment: true
         inlineScript: |
+          echo "SERVICE PRINCIPAL CREDENTIALS"
+          echo "CLIENT_ID=$servicePrincipalId"
+          echo "CLIENT_SECRET=$servicePrincipalKey"
+          echo "TENANT_ID=$tenantId"
+          echo "SUBSCRIPTION_ID=$subscriptionId"
+
+    # Terraform Init & Apply
+    - task: AzureCLI@2
+      displayName: "Terraform Init & Apply"
+      inputs:
+        azureSubscription: $(AZURE_SERVICE_CONNECTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        addSpnToEnvironment: true
+        inlineScript: |
+          # Export SP credentials to env for Terraform
           export ARM_CLIENT_ID=$servicePrincipalId
           export ARM_CLIENT_SECRET=$servicePrincipalKey
           export ARM_TENANT_ID=$tenantId
           export ARM_SUBSCRIPTION_ID=$subscriptionId
 
-          cd $(Build.SourcesDirectory)/terraform
+          echo "Working directory: $(Build.SourcesDirectory)/$(TF_DIR)"
+          cd $(Build.SourcesDirectory)/$(TF_DIR)
 
+          # Terraform workflow
           terraform init -input=false
           terraform validate
           terraform plan -out=tfplan -input=false \
@@ -62,4 +91,9 @@ stages:
 
           terraform apply -input=false -auto-approve tfplan
 
-
+    # Output Frontend LoadBalancer IP
+    - bash: |
+        cd $(Build.SourcesDirectory)/$(TF_DIR)
+        echo "Frontend LoadBalancer IP:"
+        terraform output frontend_service_ip
+      displayName: "Get Frontend LB IP"
