@@ -23,7 +23,7 @@ resource "kubernetes_deployment" "backend" {
           name  = "backend"
           image = "adhvyth/devops-pipeline:backend-latest"
           port {
-            container_port = 8080
+            container_port = 8080   # ✅ matches backend Dockerfile
           }
         }
       }
@@ -43,8 +43,8 @@ resource "kubernetes_service" "backend" {
       app = kubernetes_deployment.backend.metadata[0].labels["app"]
     }
     port {
-      port        = 80
-      target_port = 8080
+      port        = 80       # internal ClusterIP port
+      target_port = 8080     # ✅ backend container port
     }
     type = "ClusterIP"
   }
@@ -75,11 +75,11 @@ resource "kubernetes_deployment" "frontend" {
           name  = "frontend"
           image = "adhvyth/devops-pipeline:frontend-latest"
           port {
-            container_port = 80
+            container_port = 3000   # ✅ matches frontend Dockerfile
           }
           env {
             name  = "BACKEND_URL"
-            value = "http://backend-svc"
+            value = "http://backend-svc"   # ✅ cluster DNS
           }
         }
       }
@@ -99,8 +99,8 @@ resource "kubernetes_service" "frontend" {
       app = kubernetes_deployment.frontend.metadata[0].labels["app"]
     }
     port {
-      port        = 80
-      target_port = 80
+      port        = 80       # external port on LoadBalancer
+      target_port = 3000     # ✅ frontend container port
     }
     type = "LoadBalancer"
   }
