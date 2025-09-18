@@ -2,12 +2,12 @@ trigger:
 - main
 
 pool:
-  name: 'Default'  # Your self-hosted agent
+  name: 'Default'  # Self-hosted agent
   demands:
   - agent.name -equals agent2
 
 variables:
-  TF_DIR: 'terraform'  # Path to main.tf + variables.tf + k8s-deploy.tf
+  TF_DIR: 'terraform'        # Folder containing main.tf + k8s-deploy.tf
   JENKINS_JOB: 'lost-found-pipeline'
   JENKINS_URL: 'http://20.40.43.80:8080'
   JENKINS_USER: 'shanmuk'
@@ -43,52 +43,29 @@ stages:
     # Checkout repo
     - checkout: self
 
-    # Debug: verify Terraform installed
+    # Verify Terraform installed
     - bash: terraform -version
       displayName: "Check Terraform"
 
-    # Debug: verify SP credentials
-    - task: AzureCLI@2
-      displayName: "Debug SP credentials"
-      inputs:
-        azureSubscription: $(AZURE_SERVICE_CONNECTION)
-        scriptType: bash
-        scriptLocation: inlineScript
-        addSpnToEnvironment: true
-        inlineScript: |
-          echo "SERVICE PRINCIPAL CREDENTIALS"
-          echo "CLIENT_ID=$servicePrincipalId"
-          echo "CLIENT_SECRET=$servicePrincipalKey"
-          echo "TENANT_ID=$tenantId"
-          echo "SUBSCRIPTION_ID=$subscriptionId"
-
-    # Terraform Init & Apply
+    # Terraform Init & Apply using AzureCLI authentication
     - task: AzureCLI@2
       displayName: "Terraform Init & Apply"
       inputs:
         azureSubscription: $(AZURE_SERVICE_CONNECTION)
         scriptType: bash
         scriptLocation: inlineScript
-        addSpnToEnvironment: true
         inlineScript: |
-          # Export SP credentials to env for Terraform
-          export ARM_CLIENT_ID=$servicePrincipalId
-          export ARM_CLIENT_SECRET=$servicePrincipalKey
-          export ARM_TENANT_ID=$tenantId
-          export ARM_SUBSCRIPTION_ID=$subscriptionId
-
           echo "Working directory: $(Build.SourcesDirectory)/$(TF_DIR)"
           cd $(Build.SourcesDirectory)/$(TF_DIR)
 
-          # Terraform workflow
+          # Initialize Terraform
           terraform init -input=false
-          terraform validate
-          terraform plan -out=tfplan -input=false \
-            -var "subscription_id=$ARM_SUBSCRIPTION_ID" \
-            -var "tenant_id=$ARM_TENANT_ID" \
-            -var "client_id=$ARM_CLIENT_ID" \
-            -var "client_secret=$ARM_CLIENT_SECRET"
 
+          # Validate Terraform files
+          terraform validate
+
+          # Plan & apply (uses AzureCLI authentication, no SP vars needed)
+          terraform plan -out=tfplan -input=false
           terraform apply -input=false -auto-approve tfplan
 
     # Output Frontend LoadBalancer IP
