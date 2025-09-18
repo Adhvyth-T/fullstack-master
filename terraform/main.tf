@@ -15,10 +15,7 @@ terraform {
 
 provider "azurerm" {
   features {}
-  subscription_id = var.subscription_id
-  tenant_id       = var.tenant_id
-  client_id       = var.client_id
-  client_secret   = var.client_secret
+  # No subscription_id/client_id required; uses AzureCLI auth
 }
 
 provider "kubernetes" {
@@ -28,13 +25,13 @@ provider "kubernetes" {
   cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config[0].cluster_ca_certificate)
 }
 
-# Resource group
+# Resource Group
 resource "azurerm_resource_group" "rg" {
   name     = "devops-pipeline-rg"
   location = "East US"
 }
 
-# AKS cluster
+# AKS Cluster
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "devops-pipeline-aks"
   location            = azurerm_resource_group.rg.location
