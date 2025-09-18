@@ -79,6 +79,7 @@ function App() {
           <ToastContainer />
         </div>
       </Router>
+                  <div>hi</div>
     </AuthProvider>
   );
 }
