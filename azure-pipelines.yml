@@ -25,8 +25,8 @@ stages:
     displayName: "Trigger Jenkins Pipeline"
     steps:
     - bash: |
-        echo "Triggering Jenkins job..."
-        curl -X POST "$(JENKINS_URL)/job/$(JENKINS_JOB)/build" \
+        echo "Triggering Jenkins job with BRANCH=main ..."
+        curl -X POST "$(JENKINS_URL)/job/$(JENKINS_JOB)/buildWithParameters?BRANCH=main" \
           --user "$(JENKINS_USER):$(JENKINS_TOKEN)"
       displayName: "Trigger Jenkins Build"
 
