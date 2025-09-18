@@ -1,23 +1,21 @@
+# ----------------------------
 # Backend Deployment
+# ----------------------------
 resource "kubernetes_deployment" "backend" {
   metadata {
     name = "backend"
-    labels = {
-      app = "backend"
-    }
+    labels = { app = "backend" }
   }
   spec {
     replicas = 2
     selector {
-      match_labels = {
-        app = "backend"
-      }
+      match_labels = { app = "backend" }
     }
     template {
       metadata {
         labels = {
-          app = "backend"
-          rollout = timestamp() # Forces redeploy with latest image
+          app     = "backend"
+          rollout = timestamp()  # Forces redeploy on image change
         }
       }
       spec {
@@ -34,13 +32,9 @@ resource "kubernetes_deployment" "backend" {
 }
 
 resource "kubernetes_service" "backend" {
-  metadata {
-    name = "backend-svc"
-  }
+  metadata { name = "backend-svc" }
   spec {
-    selector = {
-      app = kubernetes_deployment.backend.metadata[0].labels["app"]
-    }
+    selector = { app = kubernetes_deployment.backend.metadata[0].labels["app"] }
     port {
       port        = 80
       target_port = 8080
@@ -49,26 +43,24 @@ resource "kubernetes_service" "backend" {
   }
 }
 
+# ----------------------------
 # Frontend Deployment
+# ----------------------------
 resource "kubernetes_deployment" "frontend" {
   metadata {
     name = "frontend"
-    labels = {
-      app = "frontend"
-    }
+    labels = { app = "frontend" }
   }
   spec {
     replicas = 2
     selector {
-      match_labels = {
-        app = "frontend"
-      }
+      match_labels = { app = "frontend" }
     }
     template {
       metadata {
         labels = {
-          app = "frontend"
-          rollout = timestamp() # Forces redeploy with latest image
+          app     = "frontend"
+          rollout = timestamp()
         }
       }
       spec {
@@ -89,13 +81,9 @@ resource "kubernetes_deployment" "frontend" {
 }
 
 resource "kubernetes_service" "frontend" {
-  metadata {
-    name = "frontend-svc"
-  }
+  metadata { name = "frontend-svc" }
   spec {
-    selector = {
-      app = kubernetes_deployment.frontend.metadata[0].labels["app"]
-    }
+    selector = { app = kubernetes_deployment.frontend.metadata[0].labels["app"] }
     port {
       port        = 80
       target_port = 80
