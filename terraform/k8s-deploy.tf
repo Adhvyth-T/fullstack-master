@@ -75,10 +75,10 @@ resource "kubernetes_deployment" "frontend" {
           name  = "frontend"
           image = "adhvyth/devops-pipeline:frontend-latest"
           port {
-            container_port = 3000   # ✅ frontend Dockerfile
+            container_port = 3000
           }
           env {
-            name  = "BACKEND_URL"
+            name  = "REACT_APP_BACKEND_URL"
             value = "http://backend-svc:80"   # ✅ cluster DNS
           }
         }
@@ -86,6 +86,7 @@ resource "kubernetes_deployment" "frontend" {
     }
   }
 }
+
 
 # ----------------------------
 # Frontend Service
@@ -105,3 +106,4 @@ resource "kubernetes_service" "frontend" {
     type = "LoadBalancer"
   }
 }
+
