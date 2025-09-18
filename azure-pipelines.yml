@@ -2,12 +2,12 @@ trigger:
 - main
 
 pool:
-  name: 'Default'  # Self-hosted agent
+  name: 'Default'
   demands:
   - agent.name -equals agent2
 
 variables:
-  TF_DIR: 'terraform'        # Folder containing main.tf + k8s-deploy.tf
+  TF_DIR: 'terraform'
   JENKINS_JOB: 'lost-found-pipeline'
   JENKINS_URL: 'http://20.40.43.80:8080'
   JENKINS_USER: 'shanmuk'
@@ -26,9 +26,48 @@ stages:
     steps:
     - bash: |
         echo "Triggering Jenkins job with BRANCH=main ..."
-        curl -X POST "$(JENKINS_URL)/job/$(JENKINS_JOB)/buildWithParameters?BRANCH=main" \
-          --user "$(JENKINS_USER):$(JENKINS_TOKEN)"
-      displayName: "Trigger Jenkins Build"
+
+        QUEUE_URL=$(curl -s -X POST "$(JENKINS_URL)/job/$(JENKINS_JOB)/buildWithParameters?BRANCH=main" \
+          --user "$(JENKINS_USER):$(JENKINS_TOKEN)" -D - | grep -i Location | awk '{print $2}' | tr -d '\r')
+
+        if [ -z "$QUEUE_URL" ]; then
+          echo "Failed to trigger Jenkins job"
+          exit 1
+        fi
+
+        echo "Job queued at: $QUEUE_URL"
+
+        QUEUE_ID=$(basename "$QUEUE_URL")
+        echo "Queue ID: $QUEUE_ID"
+
+        # Wait for job to start
+        while true; do
+          BUILD_URL=$(curl -s "$(JENKINS_URL)/queue/item/$QUEUE_ID/api/json" \
+            --user "$(JENKINS_USER):$(JENKINS_TOKEN)" | jq -r '.executable.url // empty')
+          if [ -n "$BUILD_URL" ]; then
+            echo "Job started at $BUILD_URL"
+            break
+          fi
+          echo "Waiting for job to start..."
+          sleep 5
+        done
+
+        # Wait for job completion
+        while true; do
+          RESULT=$(curl -s "${BUILD_URL}api/json" \
+            --user "$(JENKINS_USER):$(JENKINS_TOKEN)" | jq -r '.result // empty')
+          if [ "$RESULT" != "null" ] && [ -n "$RESULT" ]; then
+            echo "Job finished with result: $RESULT"
+            if [ "$RESULT" != "SUCCESS" ]; then
+              echo "Jenkins job failed!"
+              exit 1
+            fi
+            break
+          fi
+          echo "Job still running..."
+          sleep 10
+        done
+      displayName: "Trigger Jenkins Build & Wait"
 
 # -------------------------
 # Stage 2: Terraform Deploy
@@ -40,14 +79,11 @@ stages:
   - job: Terraform
     displayName: "Terraform Deploy"
     steps:
-    # Checkout repo
     - checkout: self
 
-    # Verify Terraform installed
     - bash: terraform -version
       displayName: "Check Terraform"
 
-    # Terraform Init & Apply using AzureCLI authentication
     - task: AzureCLI@2
       displayName: "Terraform Init, Import & Apply"
       inputs:
@@ -58,24 +94,23 @@ stages:
           echo "Working directory: $(Build.SourcesDirectory)/$(TF_DIR)"
           cd $(Build.SourcesDirectory)/$(TF_DIR)
 
-          # Export ARM_* env vars for Terraform (uses Azure CLI login from this task)
+          # Export ARM env vars
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
 
           # Initialize Terraform
           terraform init -input=false
 
-          # Import existing AKS cluster into Terraform state (ignore if already imported)
+          # Import existing AKS cluster (ignore if already imported)
           terraform import azurerm_kubernetes_cluster.aks "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/devops-pipeline-rg/providers/Microsoft.ContainerService/managedClusters/devops-pipeline-aks" || true
 
-          # Validate Terraform files
+          # Validate
           terraform validate
 
-          # Plan & apply
+          # Plan & Apply
           terraform plan -out=tfplan -input=false
           terraform apply -input=false -auto-approve tfplan
 
-    # Output Frontend LoadBalancer IP
     - bash: |
         cd $(Build.SourcesDirectory)/$(TF_DIR)
         echo "Frontend LoadBalancer IP:"
