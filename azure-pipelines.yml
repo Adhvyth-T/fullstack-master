@@ -18,8 +18,8 @@ stages:
     steps:
     - bash: |
         echo "Triggering Jenkins job..."
-        curl -X POST "http://<JENKINS_URL>/job/<JOB_NAME>/build" \
-          --user "$(JENKINS_USER):$(JENKINS_API_TOKEN)"
+        curl -X POST "http://20.40.43.80:8080//job/lost-found-pipeline/build" \
+          --user "shanmuk:11176f30ee7828b6dbc251fecdf069df33"
       displayName: "Trigger Jenkins Build"
 
 # ------------------
