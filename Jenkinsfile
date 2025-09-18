@@ -76,34 +76,33 @@ pipeline {
         }
 
         stage('Build & Push Docker Images') {
-            steps {
-                script {
-                    def imageTag = "${params.BRANCH}-${env.BUILD_NUMBER ?: 'local'}"
+    steps {
+        script {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                
+                // Login to DockerHub
+                sh "echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin"
 
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
-                        
-                        // Login to DockerHub
-                        sh "echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin"
+                // Build & push frontend image
+                dir('frontend') {
+                    def frontendImage = "adhvyth/devops-pipeline:frontend-latest"
+                    sh "docker build -t ${frontendImage} ."
+                    sh "docker push ${frontendImage}"
+                    echo "Frontend image pushed: ${frontendImage}"
+                }
 
-                        // Build & push frontend image
-                        dir('frontend') {
-                            def frontendImage = "adhvyth/devops-pipeline:frontend-${imageTag}"
-                            sh "docker build -t ${frontendImage} ."
-                            sh "docker push ${frontendImage}"
-                            echo "Frontend image pushed: ${frontendImage}"
-                        }
-
-                        // Build & push backend image
-                        dir('backend') {
-                            def backendImage = "adhvyth/devops-pipeline:backend-${imageTag}"
-                            sh "docker build -t ${backendImage} ."
-                            sh "docker push ${backendImage}"
-                            echo "Backend image pushed: ${backendImage}"
-                        }
-                    }
+                // Build & push backend image
+                dir('backend') {
+                    def backendImage = "adhvyth/devops-pipeline:backend-latest"
+                    sh "docker build -t ${backendImage} ."
+                    sh "docker push ${backendImage}"
+                    echo "Backend image pushed: ${backendImage}"
                 }
             }
         }
+    }
+}
+
     }
 
     post {
