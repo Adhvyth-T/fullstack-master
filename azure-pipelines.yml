@@ -34,15 +34,9 @@ stages:
     steps:
     - checkout: self
 
-    # Install Terraform
-    - bash: |
-        sudo apt-get update
-        sudo apt-get install -y unzip curl
-        curl -sLo terraform.zip https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-        unzip terraform.zip
-        sudo mv terraform /usr/local/bin/
-        terraform -version
-      displayName: "Install Terraform"
+    # Verify Terraform exists
+    - bash: terraform -version
+      displayName: "Check Terraform"
 
     # Run Terraform
     - task: AzureCLI@2
@@ -55,8 +49,9 @@ stages:
           echo "Working directory: $(Build.SourcesDirectory)"
           ls -R $(Build.SourcesDirectory)
 
-          cd $(Build.SourcesDirectory)/terraform   # <-- point to new Terraform directory
+          cd $(Build.SourcesDirectory)/terraform   # <-- your terraform folder
           terraform init -input=false
           terraform validate
           terraform plan -out=tfplan -input=false
           terraform apply -input=false tfplan
+
