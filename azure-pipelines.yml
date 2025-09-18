@@ -58,13 +58,19 @@ stages:
           echo "Working directory: $(Build.SourcesDirectory)/$(TF_DIR)"
           cd $(Build.SourcesDirectory)/$(TF_DIR)
 
+          # Export ARM_* env vars for Terraform (uses Azure CLI login from this task)
+          export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
+          export ARM_CLIENT_ID=""
+          export ARM_CLIENT_SECRET=""
+
           # Initialize Terraform
           terraform init -input=false
 
           # Validate Terraform files
           terraform validate
 
-          # Plan & apply (uses AzureCLI authentication, no SP vars needed)
+          # Plan & apply
           terraform plan -out=tfplan -input=false
           terraform apply -input=false -auto-approve tfplan
 
@@ -74,3 +80,4 @@ stages:
         echo "Frontend LoadBalancer IP:"
         terraform output frontend_service_ip
       displayName: "Get Frontend LB IP"
+
