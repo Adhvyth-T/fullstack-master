@@ -27,9 +27,10 @@ stages:
     - bash: |
         echo "Triggering Jenkins job with BRANCH=main ..."
 
-        # Trigger job and capture queue location (302 redirect in header)
-        QUEUE_URL=$(curl -s -X POST "$(JENKINS_URL)/job/$(JENKINS_JOB)/buildWithParameters?BRANCH=main" \
-          --user "$(JENKINS_USER):$(JENKINS_TOKEN)" -D - | grep -i Location | awk '{print $2}' | tr -d '\r')
+        # Trigger Jenkins job with parameters
+        QUEUE_URL=$(curl -s -X POST "$JENKINS_URL/job/$JENKINS_JOB/buildWithParameters" \
+          --user "$JENKINS_USER:$JENKINS_TOKEN" \
+          -d "BRANCH=main" -D - | grep -i Location | awk '{print $2}' | tr -d '\r')
 
         if [ -z "$QUEUE_URL" ]; then
           echo "Failed to trigger Jenkins job"
@@ -38,36 +39,27 @@ stages:
 
         echo "Job queued at: $QUEUE_URL"
 
-        # Extract queue item number
+        # Extract queue ID
         QUEUE_ID=$(basename "$QUEUE_URL")
         echo "Queue ID: $QUEUE_ID"
 
-        # Poll Jenkins queue until job starts
+        # Wait for Jenkins job to start
         while true; do
-          RESPONSE=$(curl -s "$(JENKINS_URL)/queue/item/$QUEUE_ID/api/json" \
-            --user "$(JENKINS_USER):$(JENKINS_TOKEN)")
-
-          # Extract 'executable.url' from JSON using grep/sed
-          BUILD_URL=$(echo "$RESPONSE" | grep -oP '"executable":\s*{\s*"url":\s*"\K[^"]+')
-
+          BUILD_URL=$(curl -s "$JENKINS_URL/queue/item/$QUEUE_ID/api/json" \
+            --user "$JENKINS_USER:$JENKINS_TOKEN" | jq -r '.executable.url // empty')
           if [ -n "$BUILD_URL" ]; then
             echo "Job started at $BUILD_URL"
             break
           fi
-
           echo "Waiting for job to start..."
           sleep 5
         done
 
-        # Poll Jenkins build until completion
+        # Wait for Jenkins build to finish
         while true; do
-          RESPONSE=$(curl -s "${BUILD_URL}api/json" \
-            --user "$(JENKINS_USER):$(JENKINS_TOKEN)")
-
-          # Extract 'result' field
-          RESULT=$(echo "$RESPONSE" | grep -oP '"result":\s*"\K[^"]+')
-
-          if [ -n "$RESULT" ] && [ "$RESULT" != "null" ]; then
+          RESULT=$(curl -s "${BUILD_URL}api/json" \
+            --user "$JENKINS_USER:$JENKINS_TOKEN" | jq -r '.result // empty')
+          if [ "$RESULT" != "null" ] && [ -n "$RESULT" ]; then
             echo "Job finished with result: $RESULT"
             if [ "$RESULT" != "SUCCESS" ]; then
               echo "Jenkins job failed!"
@@ -75,11 +67,12 @@ stages:
             fi
             break
           fi
-
           echo "Job still running..."
           sleep 10
         done
-      displayName: "Trigger Jenkins Build & Wait (no jq)"
+
+        echo "Jenkins CI stage completed successfully."
+      displayName: "Trigger Jenkins Build & Wait"
 
 
 # -------------------------
