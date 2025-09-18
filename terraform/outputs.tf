@@ -4,7 +4,7 @@ output "kube_config" {
   sensitive = true
 }
 
-# Frontend LoadBalancer IP (waits for ingress if not ready immediately)
+# Frontend LoadBalancer IP (uses try() to avoid errors if IP not ready)
 output "frontend_service_ip" {
   value = try(
     kubernetes_service.frontend.status[0].load_balancer[0].ingress[0].ip,
