@@ -15,7 +15,7 @@ resource "kubernetes_deployment" "backend" {
       metadata {
         labels = {
           app     = "backend"
-          rollout = timestamp()
+          rollout = replace(replace(timestamp(), ":", "-"), "Z", "")
         }
       }
       spec {
@@ -67,7 +67,7 @@ resource "kubernetes_deployment" "frontend" {
       metadata {
         labels = {
           app     = "frontend"
-          rollout = timestamp()
+          rollout = replace(replace(timestamp(), ":", "-"), "Z", "")
         }
       }
       spec {
