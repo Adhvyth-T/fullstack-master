@@ -1,17 +1,20 @@
-variable "location" {
-  description = "Azure region for AKS"
+variable "subscription_id" {
+  description = "Azure Subscription ID"
   type        = string
-  default     = "East US"
 }
 
-variable "node_count" {
-  description = "Number of AKS nodes"
-  type        = number
-  default     = 2
+variable "tenant_id" {
+  description = "Azure Tenant ID"
+  type        = string
 }
 
-variable "node_size" {
-  description = "VM size for AKS nodes"
+variable "client_id" {
+  description = "Azure Client ID"
   type        = string
-  default     = "Standard_DS2_v2"
+}
+
+variable "client_secret" {
+  description = "Azure Client Secret"
+  type        = string
+  sensitive   = true
 }
