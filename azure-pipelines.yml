@@ -49,9 +49,9 @@ stages:
 
     # Terraform Init & Apply using AzureCLI authentication
     - task: AzureCLI@2
-      displayName: "Terraform Init & Apply"
+      displayName: "Terraform Init, Import & Apply"
       inputs:
-        azureSubscription: 'myAzureRMServiceConnection'
+        azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
@@ -61,11 +61,12 @@ stages:
           # Export ARM_* env vars for Terraform (uses Azure CLI login from this task)
           export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
-          export ARM_CLIENT_ID=""
-          export ARM_CLIENT_SECRET=""
 
           # Initialize Terraform
           terraform init -input=false
+
+          # Import existing AKS cluster into Terraform state (ignore if already imported)
+          terraform import azurerm_kubernetes_cluster.aks "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/devops-pipeline-rg/providers/Microsoft.ContainerService/managedClusters/devops-pipeline-aks" || true
 
           # Validate Terraform files
           terraform validate
@@ -80,4 +81,3 @@ stages:
         echo "Frontend LoadBalancer IP:"
         terraform output frontend_service_ip
       displayName: "Get Frontend LB IP"
-
