@@ -15,7 +15,6 @@ terraform {
 
 provider "azurerm" {
   features {}
-  # No subscription_id/client_id required; uses AzureCLI auth
 }
 
 provider "kubernetes" {
@@ -25,27 +24,25 @@ provider "kubernetes" {
   cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config[0].cluster_ca_certificate)
 }
 
-# Resource Group
-resource "azurerm_resource_group" "rg" {
-  name     = "devops-pipeline-rg"
-  location = "East US"
+# ✅ Use existing Resource Group
+data "azurerm_resource_group" "rg" {
+  name = "devops-pipeline-rg"
 }
 
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "devops-pipeline-aks"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
   dns_prefix          = "devopspipeline"
 
   default_node_pool {
     name       = "default"
-    node_count = 2
-    vm_size    = "Standard_B2s"
+    node_count = 1
+    vm_size    = "Standard_B2s" # ✅ safer size for free/limited subs
   }
 
   identity {
     type = "SystemAssigned"
   }
 }
-
