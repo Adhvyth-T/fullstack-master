@@ -28,51 +28,18 @@ stages:
         echo "Triggering Jenkins job with BRANCH=main ..."
 
         # Trigger Jenkins job with parameters
-        QUEUE_URL=$(curl -s -X POST "$JENKINS_URL/job/$JENKINS_JOB/buildWithParameters" \
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$JENKINS_URL/job/$JENKINS_JOB/buildWithParameters" \
           --user "$JENKINS_USER:$JENKINS_TOKEN" \
-          -d "BRANCH=main" -D - | grep -i Location | awk '{print $2}' | tr -d '\r')
+          -d "BRANCH=main")
 
-        if [ -z "$QUEUE_URL" ]; then
-          echo "Failed to trigger Jenkins job"
+        if [ "$RESPONSE" -ne 201 ]; then
+          echo "Failed to trigger Jenkins job, HTTP code: $RESPONSE"
           exit 1
         fi
 
-        echo "Job queued at: $QUEUE_URL"
+        echo "Jenkins job triggered successfully."
+      displayName: "Trigger Jenkins Build"
 
-        # Extract queue ID
-        QUEUE_ID=$(basename "$QUEUE_URL")
-        echo "Queue ID: $QUEUE_ID"
-
-        # Wait for Jenkins job to start
-        while true; do
-          BUILD_URL=$(curl -s "$JENKINS_URL/queue/item/$QUEUE_ID/api/json" \
-            --user "$JENKINS_USER:$JENKINS_TOKEN" | jq -r '.executable.url // empty')
-          if [ -n "$BUILD_URL" ]; then
-            echo "Job started at $BUILD_URL"
-            break
-          fi
-          echo "Waiting for job to start..."
-          sleep 5
-        done
-
-        # Wait for Jenkins build to finish
-        while true; do
-          RESULT=$(curl -s "${BUILD_URL}api/json" \
-            --user "$JENKINS_USER:$JENKINS_TOKEN" | jq -r '.result // empty')
-          if [ "$RESULT" != "null" ] && [ -n "$RESULT" ]; then
-            echo "Job finished with result: $RESULT"
-            if [ "$RESULT" != "SUCCESS" ]; then
-              echo "Jenkins job failed!"
-              exit 1
-            fi
-            break
-          fi
-          echo "Job still running..."
-          sleep 10
-        done
-
-        echo "Jenkins CI stage completed successfully."
-      displayName: "Trigger Jenkins Build & Wait"
 
 
 # -------------------------
