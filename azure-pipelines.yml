@@ -51,7 +51,7 @@ stages:
     - task: AzureCLI@2
       displayName: "Terraform Init & Apply"
       inputs:
-        azureSubscription: myAzureRMServiceConnection
+        azureSubscription: 'myAzureRMServiceConnection'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
